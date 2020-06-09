@@ -34,15 +34,17 @@ mydataset <- data.frame(row_dataset)
 mydataset <- mydataset[which(colMeans(!is.na(mydataset)) > 0.9)]
 
 
+
+##################### A PARTIR DE AQUI ES COPY PASTE######################
 ###########Outliers with Cooks distance
-mod1 <- lm(Score ~ ., data=data)
+mod1 <- lm(Score ~ ., data=mydataset)
 cooksd1 <- cooks.distance(mod1)
 plot(cooksd1, pch=".", cex=2, main="score")  # plot cook's distance
 abline(h = 4*mean(cooksd1, na.rm=T), col="red")  # add cutoff line
 text(x=1:length(cooksd1)+1, y=cooksd1, labels=ifelse(cooksd1>4*mean(cooksd1, na.rm=T),names(cooksd1),""), col="red")  # add labels
 
 ######### check with mahalanobis distance ########
-X <- mydataset[,1:27]
+X <- mydataset
 
 # define a function to find extreme outliers
 FindExtremeOutliers <- function(data) {
