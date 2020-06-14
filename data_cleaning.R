@@ -1,4 +1,28 @@
 rm(list = ls())
+
+col_names <- c("countries_en",
+               "additives_n",
+               "pnns_groups_2",
+               "nutriscore_score",
+               "nutriscore_grade",
+               "nova_group",
+               "fat_100g",
+               "carbohydrates_100g",
+               "sugars_100g",
+               "proteins_100g",
+               "salt_100g",
+               "fiber_100g",
+)
+
+nutrition <- c(
+  "fat_100g",
+  "carbohydrates_100g",
+  "sugars_100g",
+  "proteins_100g",
+  "salt_100g",
+  "fiber_100g",
+)
+
 files_list <-list.files("data",pattern=".csv")
 for (i in 1:length(files_list)) 
   {
@@ -6,33 +30,20 @@ for (i in 1:length(files_list))
   filename <- sprintf("data/%s",files_list[i])
   if (i==1){
     row_dataset <- read.csv2(filename,header=TRUE)
-    take <- c("countries_en",
-          "additives_n",
-          "pnns_groups_1",
-          "pnns_groups_2",
-          "nutriscore_score",
-          "nutriscore_grade",
-          "nova_group",
-          "energy_100g",
-          "fat_100g",
-          "carbohydrates_100g",
-          "sugars_100g",
-          "proteins_100g",
-          "salt_100g"
-           )
-  colindex <-which(names(row_dataset) %in% take)
-  row_dataset <-row_dataset[ , (names(row_dataset) %in% take)]
-  
+
+    colindex <-which(names(row_dataset) %in% col_names)
+    row_dataset <-row_dataset[ , (names(row_dataset) %in% col_names)]
+    col_names <- colnames(row_dataset)  
   } else {
     row_dataset <- read.csv2(filename,header=FALSE)
     row_dataset <-row_dataset[ , (names(row_dataset) %in% sprintf("V%d",colindex))]
-    colnames(row_dataset) <- take
+    colnames(row_dataset) <- col_names
   }
-  
-  row_dataset<-row_dataset[-which(is.na(row_dataset$nutriscore_score)),]
-  row_dataset <- data.frame(row_dataset)
   row_dataset[row_dataset==""]<-NA
-  row_dataset[row_dataset=="unknown"]<-NA
+  row_dataset[row_dataset=="unknown"]<-NA  
+  row_dataset <- row_dataset[which(!is.na(row_dataset$nutriscore_score)),]
+  row_dataset <- data.frame(row_dataset)
+
   if (i==1){
     mydataset <- row_dataset
   } else {
@@ -40,16 +51,24 @@ for (i in 1:length(files_list))
   }
   
 }
-
 write.csv(mydataset,"complete_data.csv", row.names = FALSE)
+rm(row_dataset,i,files_list,filename,colindex)
 
+row_dataset <- read.csv("complete_data.csv",header=TRUE)
 mydataset <- data.frame(row_dataset)
 
-## Remove columns with more than 50% NA 
-#which(rowMeans(!is.na(mydataset)) > 0.3), 
-mydataset <- mydataset[which(colMeans(!is.na(mydataset)) > 0.9)]
 
+errata <- !is.na(mydataset[nutrition])&(mydataset[nutrition]>100)
+mydataset[nutrition][errata] <- mydataset[nutrition][errata]/1000
+mydataset[nutrition][is.na(mydataset[nutrition])] <- 0.0
+mydataset[nutrition][mydataset[nutrition]>100] <- NA
 
+errata <- is.na(mydataset$energy_100g)|(mydataset$energy_100g>1000)
+mydataset$energy_100g[errata] <- 9*mydataset$fat_100g[errata] + 
+  4*mydataset$carbohydrates_100g[errata]+4*mydataset$carbohydrates_100g[errata]
+
+## Take columns with more than 80% not NA 
+mydataset <- mydataset[which(rowMeans(!is.na(mydataset)) > 0.8),]
 
 ##################### A PARTIR DE AQUI ES COPY PASTE######################
 ###########Outliers with Cooks distance
