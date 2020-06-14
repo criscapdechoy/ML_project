@@ -15,6 +15,7 @@ library("ggpubr")
 library("DMwR")
 library("plsdepot")
 library("FactoMineR")
+library(chemometrics)
 
 source("graphs.R")
 source("useful.R")
@@ -46,36 +47,55 @@ nutrition <- c(
 )
 
 files_list <-list.files("data",pattern=".csv")
-for (i in 1:length(files_list)) 
-  {
 
-  filename <- sprintf("data/%s",files_list[i])
-  if (i==1){
-    row_dataset <- read.csv2(filename,header=TRUE)
-
-    colindex <-which(names(row_dataset) %in% col_names)
-    row_dataset <-row_dataset[ , (names(row_dataset) %in% col_names)]
-    col_names <- colnames(row_dataset)  
-  } else {
-    row_dataset <- read.csv2(filename,header=FALSE)
-    row_dataset <-row_dataset[ , (names(row_dataset) %in% sprintf("V%d",colindex))]
-    colnames(row_dataset) <- col_names
+unico = TRUE
+if (!unico){
+  for (i in 1:length(files_list)) 
+    {
+  
+    filename <- sprintf("data/%s",files_list[i])
+    if (i==1){
+      row_dataset <- read.csv2(filename,header=TRUE)
+  
+      colindex <-which(names(row_dataset) %in% col_names)
+      row_dataset <-row_dataset[ , (names(row_dataset) %in% col_names)]
+      col_names <- colnames(row_dataset)  
+    } else {
+      row_dataset <- read.csv2(filename,header=FALSE)
+      row_dataset <-row_dataset[ , (names(row_dataset) %in% sprintf("V%d",colindex))]
+      colnames(row_dataset) <- col_names
+    }
+    row_dataset[row_dataset==""]<-NA
+    row_dataset[row_dataset=="unknown"]<-NA  
+    row_dataset <- row_dataset[which(!is.na(row_dataset$nutriscore_score)),]
+    row_dataset <- data.frame(row_dataset)
+  
+    if (i==1){
+      mydataset <- row_dataset
+    } else {
+      mydataset <-rbind(mydataset,row_dataset)
+    }
+    
   }
+} else {
+  filename <- "data/"
+  row_dataset <- read.csv2(filename,header=TRUE)
+  colindex <-which(names(row_dataset) %in% col_names)
+  row_dataset <-row_dataset[ , (names(row_dataset) %in% col_names)]
+  col_names <- colnames(row_dataset) 
   row_dataset[row_dataset==""]<-NA
   row_dataset[row_dataset=="unknown"]<-NA  
   row_dataset <- row_dataset[which(!is.na(row_dataset$nutriscore_score)),]
   row_dataset <- data.frame(row_dataset)
-
-  if (i==1){
-    mydataset <- row_dataset
-  } else {
-    mydataset <-rbind(mydataset,row_dataset)
-  }
-  
+  mydataset <- row_dataset
 }
+
+
+
 write.csv(mydataset,"complete_data.csv", row.names = FALSE)
 rm(row_dataset,i,files_list,filename,colindex)
-
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 row_dataset <- read.csv("complete_data.csv",header=TRUE)
 mydataset <- data.frame(row_dataset)
 mydataset[nutrition] <- apply(mydataset[nutrition],2,as.numeric)
@@ -85,8 +105,79 @@ mydataset[nutrition][errata] <- mydataset[nutrition][errata]/1000
 mydataset[nutrition][is.na(mydataset[nutrition])] <- 0.0
 mydataset[nutrition][mydataset[nutrition]>100] <- NA
 rm(errata)
-
-## Take columns with more than 90% not NA 
 mydataset <- mydataset[which(rowMeans(!is.na(mydataset)) > 0.9),]
 
-X <- as.matrix(data[,-9])
+
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+## Take columns with more than 90% not NA 
+
+X <- as.matrix(mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")])
+n <- nrow(X); varnames <- colnames(X)
+p <- ncol(X); indnames <- rownames(X)
+
+boxplot(X)
+
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+X_nonmiss <-X[which(rowMeans(!is.na(mydataset)) == 1),]
+md = mahalanobis(X_nonmiss, center=apply(X_nonmiss, 2, mean), cov=var(X_nonmiss))
+md
+plot(density(md))
+sort(md)
+
+to_cut <- md[md>100]
+to_cut <- row.names(as.matrix(to_cut))
+X_nonoutlier <- X[-which(rownames(X) %in% to_cut),]
+par(mfrow=c(1,1))
+boxplot(X_nonoutlier)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#IMPUTATION OF THE MISSING VALUES#
+library("mice")
+
+imp <- mice(X_nonoutlier, m = 1, nnet.MaxNWts = 2000)
+
+X <- complete(imp)
+
+summary(X)
+rm(imp, row_dataset, X_nonmiss, X_nonoutlier, md)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+mydataset <- mydataset[-which(rownames(mydataset) %in% to_cut),]
+mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")] <- X
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+
+countries <- c('France',
+ 'United States',
+ 'Spain',
+ 'Germany',
+ 'Switzerland',
+ 'Belgium',
+ 'United Kingdom',
+ 'Italy',
+ 'Mexico',
+ 'Poland',
+ 'Netherlands',
+ 'Canada',
+ 'Sweden',
+ 'Australia',
+ 'Austria',
+ 'Portugal',
+ 'Thailand',
+ 'Romania',
+ 'Finland')
+
+for (i in 1:dim(mydataset)[1]){
+  countries_list <- strsplit(sprintf("%s",mydataset$countries_en[i]),",")
+  flag <- True
+  for (country in countries_list){
+    flag <- all(TRUE, country %in% countries)
+  }
+}
+#write.csv(mydataset,"final_data.csv", row.names = FALSE)
+
+```
