@@ -1,32 +1,48 @@
-row_dataset <- read.table("xaa11.csv",sep="\t",header=TRUE, fill=TRUE)
-drops <- c("image_url",
-           "image_small_url",
-           "image_ingredients_url",
-           "image_ingredients_small_url",
-           "image_nutrition_url",
-           "image_nutrition_small_url",
-           "X.butyric.acid_100g",
-           "X.caproic.acid_100g",                       
-           "X.caprylic.acid_100g",
-           "X.capric.acid_100g",
-           "X.lauric.acid_100g",
-           "X.myristic.acid_100g",                     
-           "X.palmitic.acid_100g",
-           "X.stearic.acid_100g",                       
-           "X.arachidic.acid_100g",
-           "X.behenic.acid_100g",                   
-           "X.lignoceric.acid_100g",
-           "X.cerotic.acid_100g",                     
-           "X.montanic.acid_100g",
-           "X.melissic.acid_100g",                      
-           "monounsaturated.fat_100g",
-           "polyunsaturated.fat_100g",                 
-           "omega.3.fat_100g",
-           "X.alpha.linolenic.acid_100g",            
-           "X.eicosapentaenoic.acid_100g",
-           "X.docosahexaenoic.acid_100g"
+rm(list = ls())
+files_list <-list.files("data",pattern=".csv")
+for (i in 1:length(files_list)) 
+  {
+
+  filename <- sprintf("data/%s",files_list[i])
+  if (i==1){
+    row_dataset <- read.csv2(filename,header=TRUE)
+    take <- c("countries_en",
+          "additives_n",
+          "pnns_groups_1",
+          "pnns_groups_2",
+          "nutriscore_score",
+          "nutriscore_grade",
+          "nova_group",
+          "energy_100g",
+          "fat_100g",
+          "carbohydrates_100g",
+          "sugars_100g",
+          "proteins_100g",
+          "salt_100g"
            )
-row_dataset <-row_dataset[ , !(names(row_dataset) %in% drops)]
+  colindex <-which(names(row_dataset) %in% take)
+  row_dataset <-row_dataset[ , (names(row_dataset) %in% take)]
+  
+  } else {
+    row_dataset <- read.csv2(filename,header=FALSE)
+    row_dataset <-row_dataset[ , (names(row_dataset) %in% sprintf("V%d",colindex))]
+    colnames(row_dataset) <- take
+  }
+  
+  row_dataset<-row_dataset[-which(is.na(row_dataset$nutriscore_score)),]
+  row_dataset <- data.frame(row_dataset)
+  row_dataset[row_dataset==""]<-NA
+  row_dataset[row_dataset=="unknown"]<-NA
+  if (i==1){
+    mydataset <- row_dataset
+  } else {
+    mydataset <-rbind(mydataset,row_dataset)
+  }
+  
+}
+
+write.csv(mydataset,"complete_data.csv", row.names = FALSE)
+
 mydataset <- data.frame(row_dataset)
 
 ## Remove columns with more than 50% NA 
