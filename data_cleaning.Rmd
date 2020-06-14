@@ -18,9 +18,10 @@ library("FactoMineR")
 
 source("graphs.R")
 source("useful.R")
-
 rm(list = ls())
-
+```
+First, we define the columns we are interested with after a deep looking through the 1
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 col_names <- c("countries_en",
                "additives_n",
                "pnns_groups_2",
