@@ -125,11 +125,10 @@ boxplot(X)
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 X_nonmiss <-X[which(rowMeans(!is.na(mydataset)) == 1),]
 md = mahalanobis(X_nonmiss, center=apply(X_nonmiss, 2, mean), cov=var(X_nonmiss))
-md
 plot(density(md))
 sort(md)
 
-to_cut <- md[md>100]
+to_cut <- md[md>quantile(md,0.975)]
 to_cut <- row.names(as.matrix(to_cut))
 X_nonoutlier <- X[-which(rownames(X) %in% to_cut),]
 par(mfrow=c(1,1))
