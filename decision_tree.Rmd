@@ -1,0 +1,109 @@
+---
+  
+  author: "Roberto Ruiz"
+---
+  
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+requiredPackages <- c("matrixStats", "ggplot2", "FactoMineR", "gridExtra", "ggpubr","DMwR", "plsdepot")
+missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
+if(length(missingPackages)) install.packages(missingPackages)
+
+library("matrixStats")
+library("ggplot2")
+library("gridExtra")
+library("ggpubr")
+library("DMwR")
+library("plsdepot")
+library("FactoMineR")
+library(chemometrics)
+
+source("graphs.R")
+source("useful.R")
+rm(list = ls())
+```
+
+```{r}
+mydataset = read.csv("final_data.csv",header=TRUE)
+```
+
+
+```{r}
+
+set.seed(1876)
+test.index = sample(1:nrow(mydataset), nrow(mydataset)*0.1)
+
+data.nograde = subset(mydataset, select= -nutriscore_grade)
+
+data.test = data.nograde[test.index,]
+data.train = data.nograde[-test.index,]
+```
+
+```{r}
+library(rattle)
+tree = rpart(nutriscore_score~., data=data.train, control=rpart.control(cp=0.001, xval=10))
+
+plotcp(tree)
+printcp(tree)
+```
+There's a large drop after split 23
+
+```{r}
+smalltree = prune(tree, cp = 0.01)
+fancyRpartPlot(smalltree, main="Subset of the Decision Tree", sub="")
+```
+
+```{r}
+importance_vars = barplot(tree$variable.importance,
+        main="Variable Importances",
+        xaxt="n",
+        xlab="Variable",
+        ylab="Importance",
+        #ylim = c(0,120),
+        col="darkgrey")
+text(cex=0.7, x=importance_vars, y=0, names(tree$variable.importance), xpd=TRUE, srt=20, pos=1, offset=1)
+```
+```{r}
+#library(ROCR) # maybe
+library(caret)
+
+predictions.train = predict(tree, newdata=data.train)
+r2.train = R2(predictions.train, data.train$nutriscore_score)
+
+predictions.test = predict(tree, newdata=data.test)
+r2.test = R2(predictions.test, data.test$nutriscore_score)
+```
+
+```{r}
+library(randomForest)
+
+data.train2 = data.train
+data.train2$pnns_groups_2 <- as.character(data.train2$pnns_groups_2)
+data.train2$pnns_groups_2[is.na(data.train2$pnns_groups_2)] <- "UNKNOWN"
+data.train2$pnns_groups_2 = as.factor(data.train2$pnns_groups_2)
+
+data.test2 = data.test
+data.test2$pnns_groups_2 <- as.character(data.test2$pnns_groups_2)
+data.test2$pnns_groups_2[is.na(data.test2$pnns_groups_2)] <- "UNKNOWN"
+data.test2$pnns_groups_2 = as.factor(data.test2$pnns_groups_2)
+
+
+rf =  randomForest(formula = nutriscore_score~.,
+                   data=data.train2,
+                   mtry=3,      # three predictor-vars selected randomly at each split
+                   xtest=subset(data.test2, select=-nutriscore_score),
+                   ytest=data.test2$nutriscore_score,
+                   keep.forest=TRUE,
+                   importance=T,
+                   ntree=500,
+                   nodesize = 50,
+                   maxnodes = 40,
+                   norm.votes=T )
+```
+
+Get the R2 for the random forest.
+```{r}
+levels(data.test2$pnns_groups_2) <- levels(data.train2$pnns_groups_2)
+rf_predictions = predict(rf, newdata=data.test2)
+r2.rf = R2(rf_predictions, data.test2$nutriscore_score)
+```
+
