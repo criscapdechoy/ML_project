@@ -109,16 +109,19 @@ mydataset <- mydataset[which(rowMeans(!is.na(mydataset)) > 0.9),]
 
 
 ```
+
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 ## Take columns with more than 90% not NA 
 
-X <- as.matrix(mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")])
+X <- data.matrix(mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")])
 n <- nrow(X); varnames <- colnames(X)
 p <- ncol(X); indnames <- rownames(X)
 
 boxplot(X)
 
 ```
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 X_nonmiss <-X[which(rowMeans(!is.na(mydataset)) == 1),]
 md = mahalanobis(X_nonmiss, center=apply(X_nonmiss, 2, mean), cov=var(X_nonmiss))
@@ -173,11 +176,11 @@ countries <- c('France',
 
 for (i in 1:dim(mydataset)[1]){
   countries_list <- strsplit(sprintf("%s",mydataset$countries_en[i]),",")
-  flag <- True
+  flag <- TRUE
   for (country in countries_list){
     flag <- all(TRUE, country %in% countries)
   }
 }
-#write.csv(mydataset,"final_data.csv", row.names = FALSE)
+write.csv(mydataset,"final_data.csv", row.names = FALSE)
 
 ```
