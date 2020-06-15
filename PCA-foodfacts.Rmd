@@ -1,0 +1,88 @@
+---
+title: "PCA"
+author: "Ana"
+date: "14/6/2020"
+output:
+  word_document: default
+  html_document: default
+---
+1.PCA with FactoMineR function
+```{r}
+library(dplyr)
+library (ggplot2)
+library(FactoMineR)
+
+final_data <- read.csv("C:/Users/Ana/Desktop/final_data.csv")
+sapply(final_data, class)
+#remove factor and responsive vble
+fd_for_pca <- select(final_data, 
+                     -countries_en, 
+                     -nutriscore_grade,
+                     -pnns_groups_2,
+                     -nutriscore_score)
+
+head(final_data, n=9)
+#data for PCA 36556 - 8 vbles
+
+
+#PCA con funcion
+pca_final_data <- prcomp(fd_for_pca, center = TRUE, scale. = TRUE)
+summary(pca_final_data)
+biplot(pca_final_data, choices=1:2)
+library(factoextra)
+fviz_pca_var(pca_final_data,
+             col.var = "contrib", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE     
+             )
+#compute standard deviation for each component
+standard_deviation <- pca_final_data$sdev
+#compute variance
+var <- standard_deviation^2
+#variance of 4 first PCA
+var[1:6]
+#proportion of variance explained
+prop_varex <- var/sum(var)
+prop_varex[1:8]
+plot(prop_varex, xlab = "Principal Component",
+             ylab = "Proportion of Variance Explained",
+             type = "b")
+
+
+library(corrplot)
+var <- get_pca_var(pca_final_data)
+corrplot(var$cos2, is.corr=FALSE)
+fviz_cos2(pca_final_data, choice = "var", axes = 1:2)
+
+```
+according to last elbow rule, the first 4 PCA are significant, retaining a total of 73% of inertia
+
+The most well represented feature is carbohydrates along sugar as these two are usually representative as the same nutrient in foods. 
+
+
+the least represented dimension is salt, as the value registered in the dataset corresponds to a 100g ration of the product, and the retio of this ingredient in that amount of food is usually not representative.
+
+
+2.PCA function with categorial dimensions as sumplementary
+```{r}
+#PCA con factors as supplementary to plot in same factorial plane
+fd1 <- select(final_data,-nutriscore_score)
+pca1 <- PCA(fd1,quali.sup=c(1,3,5)) 
+
+fviz_pca_biplot(pca1, label = "var", habillage=fd1$nutriscore_grade)
+fviz_pca_biplot(pca1, label = "var", habillage=fd1$countries_en)
+
+#sampling for a better visualization of countries as suplementary 
+sampleindex <- sample(1:nrow(fd1), 500)
+fdsample <- fd1[sampleindex, ]
+pca2 <- PCA(fdsample,quali.sup=c(1,3,5))
+fviz_pca_biplot(pca2, label = "var", habillage=fdsample$nutriscore_grade)
+fviz_pca_biplot(pca2, label = "var", habillage=fdsample$countries_en)
+
+```
+high nutrition score grades are mostly foods with high protein values
+
+```
+```{r}
+```
+
