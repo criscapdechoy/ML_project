@@ -140,7 +140,7 @@ boxplot(X_nonoutlier)
 #IMPUTATION OF THE MISSING VALUES#
 library("mice")
 
-imp <- mice(X_nonoutlier, m = 1, nnet.MaxNWts = 2000)
+imp <- mice(X_nonoutlier, m = 1, nnet.MaxNWts = 2000, method="cart")
 
 X <- complete(imp)
 
@@ -315,3 +315,47 @@ first_factorial
 
 
 ```
+
+```{r}
+mydataset = read.csv("final_data.csv",header=TRUE)
+```
+
+
+```{r}
+
+set.seed(1876)
+test.index = sample(1:nrow(mydataset), nrow(mydataset)*0.1)
+
+data.nograde = subset(mydataset, select= -nutriscore_grade)
+
+data.test = data.nograde[test.index,]
+data.train = data.nograde[-test.index,]
+```
+
+```{r}
+library(rattle)
+tree = rpart(nutriscore_score~., data=data.train, control=rpart.control(cp=0.001, xval=10))
+
+plotcp(tree)
+printcp(tree)
+```
+There's a large drop after split 23
+
+```{r}
+as.data.frame(tree$cptable)
+```
+
+```{r}
+barplot(tree$variable.importance)
+```
+```{r}
+#library(ROCR) # maybe
+library(caret)
+
+predictions.train = predict(tree, newdata=data.train)
+r2.train = R2(predictions.train, data.train$nutriscore_score)
+
+predictions.test = predict(tree, newdata=data.test)
+r2.test = R2(predictions.test, data.test$nutriscore_score)
+```
+
