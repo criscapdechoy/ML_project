@@ -50,6 +50,7 @@ files_list <-list.files("data",pattern=".csv")
 
 unico = TRUE
 if (!unico){
+  # OLD 
   for (i in 1:length(files_list)) 
     {
   
@@ -77,8 +78,10 @@ if (!unico){
     }
     
   }
+  write.csv(mydataset,"complete_data.csv", row.names = FALSE)
+
 } else {
-  filename <- "data/"
+  filename <- "input/clean_data.csv"
   row_dataset <- read.csv2(filename,header=TRUE)
   colindex <-which(names(row_dataset) %in% col_names)
   row_dataset <-row_dataset[ , (names(row_dataset) %in% col_names)]
@@ -86,21 +89,18 @@ if (!unico){
   row_dataset[row_dataset==""]<-NA
   row_dataset[row_dataset=="unknown"]<-NA  
   row_dataset <- row_dataset[which(!is.na(row_dataset$nutriscore_score)),]
-  row_dataset <- data.frame(row_dataset)
-  mydataset <- row_dataset
 }
 
-
-
-write.csv(mydataset,"complete_data.csv", row.names = FALSE)
-rm(row_dataset,i,files_list,filename,colindex)
+rm(i,files_list,filename,colindex)
 ```
+
+Pre-processing done!
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-row_dataset <- read.csv("complete_data.csv",header=TRUE)
 mydataset <- data.frame(row_dataset)
 mydataset[nutrition] <- apply(mydataset[nutrition],2,as.numeric)
 
-errata <- !is.na(mydataset[nutrition])&(mydataset[nutrition]>100)
+errata <- !is.na(mydataset[nutrition])&(mydataset[nutrition]>1000)
 mydataset[nutrition][errata] <- mydataset[nutrition][errata]/1000
 mydataset[nutrition][is.na(mydataset[nutrition])] <- 0.0
 mydataset[nutrition][mydataset[nutrition]>100] <- NA
