@@ -122,6 +122,8 @@ boxplot(X)
 
 ```
 
+
+Outlier detection and imputation of missing values!
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 X_nonmiss <-X[which(rowMeans(!is.na(mydataset)) == 1),]
 md = mahalanobis(X_nonmiss, center=apply(X_nonmiss, 2, mean), cov=var(X_nonmiss))
@@ -152,6 +154,12 @@ mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")] <- X
 write.csv(mydataset,"final_data.csv", row.names = FALSE)
 ```
 
+
+
+
+
+
+Clustering!
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 rm(mydataset,X)
 library(dplyr)
@@ -210,9 +218,11 @@ print(sign.comp)
 res.ind <- get_pca_ind(res.pca)
 Psi <- res.ind$coord[,sign.comp]
 d <- dist(Psi, method = "euclidean")
-hc <- hclust(d, method = "ward.D2")
+h.clust <- hclust(d, method="ward.D2")
+plot(h.clust)
 
-fviz_dend(hc, cex = 0.5, k = 5, main = "dendrogam")
+ini = length(h.clust$height)-20
+barplot(h.clust$height[ini:length(h.clust$height)],title="20 Larger tree heights")
 ```
 
 
@@ -227,18 +237,19 @@ da = list(data=Psi, cluster=ind.clusters)
 
 centroids = aggregate(Psi, list(ind.clusters), mean)
 
-clust.cent <- aggregate(Psi,list(ind.clusters),mean)[,2:(nd+1)]
+clust.cent <- aggregate(Psi,list(ind.clusters),mean)[,2:4]
 Bss <- sum(rowSums(clust.cent^2)*as.numeric(table(ind.clusters)))
 Tss <- sum(rowSums(Psi^2))
 Ib <- 100*Bss/Tss
 print(paste0("Inertia between clusters is ", round(Ib, digits=3), "%"))
+```
 
-k5 <- kmeans(Psi,centers=clust.cent)
-k5
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+k.means <- kmeans(Psi,centers=clust.cent)
 
 ###catdes
 
-catdes(cbind(as.factor(k5$cluster), mca.data),1)
+catdes(cbind(as.factor(k.means$cluster), data.test),1)
 
 plot(Psi[,1],Psi[,2],type="n",main="Clustering with consolidation operation")
 text(Psi[,1],Psi[,2],col=k5$cluster,cex = 0.6)
@@ -247,32 +258,6 @@ legend("bottomleft",c("c1","c2","c3","c4", "c5"),pch=20,col=c(1:5))
 
 ```
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-
-ggplot_screeplot <- function(eigenvalues, sign.comp) {
-  p <- length(eigenvalues)
-  ggplot() + geom_hline(yintercept=sign.comp, col="red") +
-    geom_point(aes(1:p,eigenvalues), col="blue", size=2.8)  +
-    geom_line(aes(1:p,eigenvalues), col="blue", size=0.8) + 
-    ggtitle("Scree Plot") + xlab("Component Number") + ylab("Eigenvalue")
-}
-
-g1 <- ggplot_screeplot(eigenvalues, sign.comp)
-
-print(ggarrange(g1,ncol=3,widths=c(4,4,2.5)))
-
-```
-
-```{r echo=FALSE, message=FALSE, warning=FALSE}
-# 4  Perform a hierarchical clustering with the significant factors, 
-#decide the number of final classes to obtain and perform a consolidation operation of the clustering. 
-
-d <- dist(Psi, method="euclidean")
-h.clust <- hclust(d, method="ward.D2")
-
-plot(h.clust)
-barplot(h.clust$height)
-```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #define number of classes
@@ -282,36 +267,16 @@ ind.clusters <- cutree(h.clust, k=num.clust)
 table(ind.clusters) #classes and nr of elements for each
 
 da = list(data=Psi, cluster=ind.clusters)
-
 plot <-fviz_cluster(da,ggtheme = theme_minimal())
 plot
-#Psi.sup <- as.data.frame(pca.fm$ind.sup$coord)[,sign.comp]
+
+
 ```
-clust.cent <- aggregate(as.data.frame(Psi),list(ind.clusters),mean)[,sign.comp+1]
-clust.cent
-Bss <- sum(rowSums(clust.cent^2)*as.numeric(table(ind.clusters)))
-Tss <- sum(rowSums(Psi^2))
-Ib <- 100*Bss/Tss
-print(paste0("Inertia between clusters is ", round(Ib, digits=3), "%"))
 
-# perform a consolidation operation of the clustering
 
-k.means <- kmeans(Psi, centers=clust.cent)
-Bss <- sum(rowSums(k.means$centers^2)*k.means$size) # = k.means$betweenss
-Wss <- sum(k.means$withinss)                        # = k.means$tot.withinss
-Ib <- 100*Bss/(Bss+Wss)
-Ib
-print(paste0("Inertia between clusters is ", round(Ib, digits=3), "%"))
-ind.clusters <- k.means$cluster
-ind.clusters
-
-p1 <- fviz_cluster(k.means, data=Psi, k = num.clust, rect = TRUE, main = "After consilidation",ggtheme = theme_minimal())
-p1
-
-library(gridExtra)
-grid.arrange(p1, plot)
-
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 #  5  Compute the Calinski-Harabassz index 
+Wss <- sum(k.means$withinss)                        
 
 before_conso_index =  round(calinhara(da$data,da$cluster),digits=2)
 before_conso_index
@@ -335,7 +300,7 @@ CH_before
 
 # 6   Using the function catdes interpret and name the obtained clusters
 #and represent them in the first factorial display. 
-desc <- catdes(cbind(as.factor(k.means$cluster),data[-ind.sup,]),1)
+desc <- catdes(as.factor(k.means$cluster),1)
 desc$quanti
 
 #  representation of clusters in first factorial plane
@@ -345,14 +310,6 @@ kmeans.cent
 
 first_factorial <- fviz_cluster(k.means, data=Psi, k = num.clust, rect = TRUE, main = "Hclust ward",ggtheme = theme_minimal())
 first_factorial
-
-grid.arrange(p1, first_factorial)
-#  assign cuba to a defined cluster
-
-dist <- apply(clust.cent, 1, function(center) {
-  sum((Psi.sup - center)^2)
-}); print(dist)
-
 
 
 
