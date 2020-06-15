@@ -154,8 +154,6 @@ write.csv(mydataset,"final_data.csv", row.names = FALSE)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 rm(mydataset,X)
-mydataset <- read.csv("final_data.csv")
-X <- mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")]
 library(dplyr)
 library (ggplot2)
 library(FactoMineR)
@@ -170,16 +168,30 @@ library("ggplot2")
 library("ggpubr")
 library ("cclust")
 library("fpc")
-#remove factor and responsive vble
-X <- select(mydataset, 
-                     -countries_en, 
-                     -nutriscore_grade,
-                     -pnns_groups_2,
-                     -nutriscore_score)
 
-head(final_data, n=9)
+nutrition <- c(
+  "fat_100g",
+  "carbohydrates_100g",
+  "sugars_100g",
+  "proteins_100g",
+  "salt_100g",
+  "fiber_100g"
+)
+
+#remove factor and responsive vble
+set.seed(1876)
+mydataset <- read.csv("final_data.csv")
+
+test.index = sample(1:nrow(mydataset), nrow(mydataset)*0.01)
+
+data.nograde <- mydataset[c("nutriscore_score","nova_group",nutrition, "additives_n")]
+data.test = data.nograde[test.index,]
+data.train = data.nograde[-test.index,]
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 #PCA con funcion
-res.pca <- prcomp(X, center = TRUE, scale. = TRUE)
+res.pca <- prcomp(data.test, center = TRUE, scale. = TRUE)
 summary(res.pca)
 
 fviz_eig(res.pca)
@@ -189,6 +201,49 @@ eigenvalues <- eig.val$eigenvalue
 kaiser.rule.lim <- mean(eigenvalues)
 sign.comp <- which(eig.val$eigenvalue > kaiser.rule.lim) #we have 3 significant dimentions
 print(sign.comp)
+## print same plots in previous pca for sing comp analysys
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+### hc clustering
+
+res.ind <- get_pca_ind(res.pca)
+Psi <- res.ind$coord[,sign.comp]
+d <- dist(Psi, method = "euclidean")
+hc <- hclust(d, method = "ward.D2")
+
+fviz_dend(hc, cex = 0.5, k = 5, main = "dendrogam")
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+##consolidation operation
+
+library(ggthemes)
+ind.clusters = cutree(hc, 5)
+table(ind.clusters)
+
+da = list(data=Psi, cluster=ind.clusters)
+
+centroids = aggregate(Psi, list(ind.clusters), mean)
+
+clust.cent <- aggregate(Psi,list(ind.clusters),mean)[,2:(nd+1)]
+Bss <- sum(rowSums(clust.cent^2)*as.numeric(table(ind.clusters)))
+Tss <- sum(rowSums(Psi^2))
+Ib <- 100*Bss/Tss
+print(paste0("Inertia between clusters is ", round(Ib, digits=3), "%"))
+
+k5 <- kmeans(Psi,centers=clust.cent)
+k5
+
+###catdes
+
+catdes(cbind(as.factor(k5$cluster), mca.data),1)
+
+plot(Psi[,1],Psi[,2],type="n",main="Clustering with consolidation operation")
+text(Psi[,1],Psi[,2],col=k5$cluster,cex = 0.6)
+abline(h=0,v=0,col="gray")
+legend("bottomleft",c("c1","c2","c3","c4", "c5"),pch=20,col=c(1:5))
 
 ```
 
@@ -211,27 +266,27 @@ print(ggarrange(g1,ncol=3,widths=c(4,4,2.5)))
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 # 4  Perform a hierarchical clustering with the significant factors, 
 #decide the number of final classes to obtain and perform a consolidation operation of the clustering. 
-res.ind <- get_pca_ind(res.pca)
-Psi <- res.ind$coord[,sign.comp]
+
 d <- dist(Psi, method="euclidean")
 h.clust <- hclust(d, method="ward.D2")
-rect.hclust(h.clust, k=4)
-par(mfrow=c(1,2), mar=c(1,4,2,1))
+
 plot(h.clust)
 barplot(h.clust$height)
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #define number of classes
-num.clust <- 4
+num.clust <- 5
 ind.clusters <- cutree(h.clust, k=num.clust)
-ind.clusters
+
 table(ind.clusters) #classes and nr of elements for each
 
 da = list(data=Psi, cluster=ind.clusters)
-da
+
 plot <-fviz_cluster(da,ggtheme = theme_minimal())
-Psi.sup <- as.data.frame(pca.fm$ind.sup$coord)[,sign.comp]
+plot
+#Psi.sup <- as.data.frame(pca.fm$ind.sup$coord)[,sign.comp]
+```
 clust.cent <- aggregate(as.data.frame(Psi),list(ind.clusters),mean)[,sign.comp+1]
 clust.cent
 Bss <- sum(rowSums(clust.cent^2)*as.numeric(table(ind.clusters)))
