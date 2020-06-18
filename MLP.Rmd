@@ -4,13 +4,10 @@
 ---
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(dplyr)
-library (ggplot2)
-library(FactoMineR)
-library(factoextra)
+library(ggplot2)
 library("matrixStats")
 library("ggplot2")
 library("gridExtra")
-library("ggpubr")
 library("DMwR")
 library("plsdepot")
 library("ggplot2")
@@ -191,6 +188,12 @@ library(caret)
 ```
 
 
+```{r}
+library(doParallel)
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+```
+
 For a specific modelling technique, in our case the *neural network*, the function `train()` in `{caret}` uses a "grid" of model parameters and trains using a given resampling method (in our case we will be using 10x10 CV). All combinations are evaluated, and the best one (according to 10x10 CV) is chosen and used to construct a final model, which is refit using the whole training set. This is all done with a call to `train()`
 
 Thus `train()` returns the constructed model (exactly as a direct call to `nnet()` would).
@@ -247,11 +250,11 @@ Now method b)
 ```
 
 
-Now optimize regularization parameter `decay` with  set to fixed 20 units (be patient.. this takes a while..):
+Now optimize regularization parameter `decay` with  set to fixed 16 units (be patient.. this takes a while..):
 ```{r}
 model.10x10CV <- train (nutriscore_grade ~., data = mydataset, subset=learn, method='nnet', 
                         maxit = 500, trace = FALSE,
-                        tuneGrid = expand.grid(.size=20,.decay=decays), trControl=trc)
+                        tuneGrid = expand.grid(.size=16,.decay=decays), trControl=trc)
 ```
 
 
@@ -267,7 +270,7 @@ model.10x10CV$bestTune
 ```
 
 The results are a bit better; we should choose the model with the lowest 10x10CV error overall,
-in this case it corresponds to 20 hidden neurons, with a decay of `r model.10x10CV$bestTune$decay`
+in this case it corresponds to 16 hidden neurons, with a decay of `r model.10x10CV$bestTune$decay`
 
 So what remains is to predict the test set with our final model
 
@@ -283,6 +286,6 @@ Note that upon looking at the confusion matrix for the prediction:
 ```{r}
 t2
 ```
- 
+
 
 it clearly suggests that quite a lot of people is getting accepted when they should not, given their gre, gpa and rank. It is very likely that other (subjective?) factors are being taken into account, that are not in the dataset.
