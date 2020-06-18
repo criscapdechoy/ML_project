@@ -137,32 +137,4 @@ mse6
 
 head (data.train, n=9)
 ```
-we keep model 3
-
-2. ridge regression
-```{r}
-library(stats)
-library(broom)
-library(glmnet)
-
-x = data.matrix(data.train)
-y_train = data.train$nutriscore_score
-alpha = 0
-lambdas <- 10^seq(3, -2, by = -.1)
-
-target.vble <- select(mydata, nutriscore_score)
-explanat.vbles <- select (mydata, -nutriscore_score, -countries_en, -nutriscore_grade, pnns_groups_2)
-
-x.target <- data.matrix(target.vble)
-x.explanat <- data.matrix(explanat.vble)
-head(x.explanat)
-
-ridge_reg = glmnet(x.explanat, x.target, nlambda = 25, alpha = 0, lambda = lambdas)
-summary(ridge_reg)
-
-lasso_reg <- cv.glmnet(x.explanat, x.target, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 5)
-
-
-class(explan2)
-class(x.explanat)
-
+we keep model 4
