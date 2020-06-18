@@ -2,7 +2,7 @@
   
   author: "Roberto Ruiz"
 ---
-  
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 requiredPackages <- c("matrixStats", "ggplot2", "FactoMineR", "gridExtra", "ggpubr","DMwR", "plsdepot")
 missingPackages <- requiredPackages[!(requiredPackages %in% installed.packages()[,"Package"])]
@@ -23,87 +23,108 @@ rm(list = ls())
 ```
 
 ```{r}
+library(randomForest)
+library(caret)
+```
+
+Enable CPU parallelism
+
+```{r}
+library(doParallel);
+cl <- makeCluster(detectCores())
+registerDoParallel(cl)
+```
+
+```{r}
 mydataset = read.csv("final_data.csv",header=TRUE)
 ```
 
 
+# Data sampling
+We'll use only 10% of the dataset to make this computationally feasible. Of that, 10% will be used for validation and the remaining 90% is what we'll train on.
+
 ```{r}
-
 set.seed(1876)
-test.index = sample(1:nrow(mydataset), nrow(mydataset)*0.1)
+sample.index = sample(1:nrow(mydataset), nrow(mydataset)*0.1)
 
-data.nograde = subset(mydataset, select= -nutriscore_grade)
+data.sample = mydataset[sample.index,]
+
+test.index = sample(1:nrow(data.sample), nrow(data.sample)*0.1)
+
+data.nograde = subset(data.sample, select= -nutriscore_score)
+data.nograde = subset(data.nograde, select= -pnns_groups_2)
 
 data.test = data.nograde[test.index,]
 data.train = data.nograde[-test.index,]
 ```
 
-```{r}
-library(rattle)
-tree = rpart(nutriscore_score~., data=data.train, control=rpart.control(cp=0.001, xval=10))
+# Running grid search
+We'll tune two hyperparameters: the number of trees and the number of variables to train on. For the number of trees we'll try 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 500. For the number of variables we'll use quantities 1 through 8.
 
-plotcp(tree)
-printcp(tree)
-```
-There's a large drop after split 23
+The grid will run iteratively on the number of trees and in parallel on the number of variables. We try to minimize out of bag error.
 
 ```{r}
-smalltree = prune(tree, cp = 0.01)
-fancyRpartPlot(smalltree, main="Subset of the Decision Tree", sub="")
-```
+ntrees = c(10*seq(1,10), 100*seq(1,5))
+vars = c(seq(1,8))
 
-```{r}
-importance_vars = barplot(tree$variable.importance,
-        main="Variable Importances",
-        xaxt="n",
-        xlab="Variable",
-        ylab="Importance",
-        #ylim = c(0,120),
-        col="darkgrey")
-text(cex=0.7, x=importance_vars, y=0, names(tree$variable.importance), xpd=TRUE, srt=20, pos=1, offset=1)
-```
-```{r}
-#library(ROCR) # maybe
-library(caret)
+rf.results = data.frame(ntree=integer(), "Accuracy"=double(), "mtry"=integer())
 
-predictions.train = predict(tree, newdata=data.train)
-r2.train = R2(predictions.train, data.train$nutriscore_score)
 
-predictions.test = predict(tree, newdata=data.test)
-r2.test = R2(predictions.test, data.test$nutriscore_score)
+rfGrid <-  data.frame(mtry=vars)
+tc <- trainControl(method = "oob")
+
+for (ntree in ntrees) {
+    set.seed(1876)
+    grid.results <- train(nutriscore_grade~.,
+                          data = data.train, 
+                          method = "rf", 
+                          trControl = tc,
+                          proximity=FALSE,
+                          ntree=ntree,
+                          tuneGrid = rfGrid)
+    results = grid.results$result[c("Accuracy", "mtry")]
+    results["ntree"] = ntree
+    
+    rf.results = rbind(rf.results, results)
+    print(cat("ntree: ", ntree))
+}
 ```
 
 ```{r}
-library(randomForest)
-
-data.train2 = data.train
-data.train2$pnns_groups_2 <- as.character(data.train2$pnns_groups_2)
-data.train2$pnns_groups_2[is.na(data.train2$pnns_groups_2)] <- "UNKNOWN"
-data.train2$pnns_groups_2 = as.factor(data.train2$pnns_groups_2)
-
-data.test2 = data.test
-data.test2$pnns_groups_2 <- as.character(data.test2$pnns_groups_2)
-data.test2$pnns_groups_2[is.na(data.test2$pnns_groups_2)] <- "UNKNOWN"
-data.test2$pnns_groups_2 = as.factor(data.test2$pnns_groups_2)
-
-
-rf =  randomForest(formula = nutriscore_score~.,
-                   data=data.train2,
-                   mtry=3,      # three predictor-vars selected randomly at each split
-                   xtest=subset(data.test2, select=-nutriscore_score),
-                   ytest=data.test2$nutriscore_score,
-                   keep.forest=TRUE,
-                   importance=T,
-                   ntree=500,
-                   nodesize = 50,
-                   maxnodes = 40,
-                   norm.votes=T )
+best.params = rf.results[which.max(as.numeric(unlist(rf.results["Accuracy"]))),]
 ```
 
-Get the R2 for the random forest.
+## Best Model
+We achieved an accuracy of 82% for our best model. This is the largest model we tried with 500 trees and 8 variables.
+
 ```{r}
-levels(data.test2$pnns_groups_2) <- levels(data.train2$pnns_groups_2)
-rf_predictions = predict(rf, newdata=data.test2)
-r2.rf = R2(rf_predictions, data.test2$nutriscore_score)
+best.params
 ```
 
+# Model Validation
+We train a new Random Forest model with the best parameters. Then we predict the holdout dataset and estimate the accuracy.
+
+```{r}
+model.rf = randomForest(nutriscore_grade~.,
+                        data=data.train,
+                        ntree=best.params$ntree, 
+                        mtry=best.params$mtry,
+                        proximity=FALSE)
+
+prediction = predict(model.rf, data.test)
+
+p2 <- as.factor(predict(model.rf, newdata=data.test, type="class"))
+t2 <- table(pred=p2,truth=data.test$nutriscore_grade)
+(error_rate.test <- 100*(1-sum(diag(t2))/nrow(data.test)))
+```
+
+## Generalization error
+Our test dataset achieved an accuracy of nearly 83%, which outperformed the out of bag estimation we used on the training data. We believe the difference to be attributable to randomness. This result leads us to believe that we did not overfit on the sample data.
+
+```{r}
+100-error_rate.test
+```
+
+```{r}
+
+```

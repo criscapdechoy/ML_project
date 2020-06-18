@@ -5,6 +5,7 @@ author: "Cristina Capdevila"
 library(MASS)
 library(nnet)
 
+
 nutrition <- c(
   "fat_100g",
   "carbohydrates_100g",
@@ -146,9 +147,7 @@ library(caret)
 
 To find the best network structure we are going to follow the next strategy: first we find which number of hidden layers fits best to the network to optimize the accuracy of the prediction, without regularization. Then, when we get the best amount we fix the decay value by analysing the results if we change it.
 
-So we start by fixing the different sizes, numb of hidden layers in the nn we want to test.
-
-Set desired sizes:
+So we start by fixing the different sizes, numb of hidden layers in the nn we want to test:
 ```{r}
 (sizes <- 2*seq(1,10,by=1))
 ```
@@ -188,6 +187,7 @@ Now optimize regularization parameter `decay` with  set to fixed 12 units (the b
 model.10x10CV <- train (nutriscore_grade ~., data = mydataset, subset=learn, method='nnet', 
                         maxit = 500, trace = FALSE,
                         tuneGrid = expand.grid(.size=12,.decay=decays), trControl=trc)
+
 ```
 
 
@@ -224,9 +224,9 @@ print(tt$overall)
 ```
 
 And we print the precision, recall and f-measure by class:
+
 ```{r}
-
 tt$byClass
-
 ```
+
 
