@@ -6,7 +6,6 @@
 
 Clustering!
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-rm(mydataset,X)
 library(dplyr)
 library (ggplot2)
 library(FactoMineR)
@@ -52,7 +51,7 @@ fviz_eig(res.pca)
 eig.val <- get_eigenvalue(res.pca)
 eigenvalues <- eig.val$eigenvalue
 kaiser.rule.lim <- mean(eigenvalues)
-sign.comp <- which(eig.val$eigenvalue > kaiser.rule.lim) #we have 3 significant dimentions
+sign.comp <- which(eig.val$eigenvalue > kaiser.rule.lim) 
 print(sign.comp)
 ## print same plots in previous pca for sing comp analysys
 ```
@@ -66,7 +65,6 @@ d <- dist(Psi, method = "euclidean")
 h.clust <- hclust(d, method="ward.D2")
 plot(h.clust)
 
-ini = length(h.clust$height)-20
 barplot(h.clust$height[ini:length(h.clust$height)],title="20 Larger tree heights")
 ```
 
@@ -75,7 +73,7 @@ barplot(h.clust$height[ini:length(h.clust$height)],title="20 Larger tree heights
 ##consolidation operation
 
 library(ggthemes)
-ind.clusters = cutree(hc, 5)
+ind.clusters = cutree(h.clust, 5)
 table(ind.clusters)
 
 da = list(data=Psi, cluster=ind.clusters)
@@ -120,43 +118,19 @@ plot
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-#  5  Compute the Calinski-Harabassz index 
-Wss <- sum(k.means$withinss)                        
+k.means <- kmeans(Psi, centers=clust.cent)
+Bss <- sum(rowSums(k.means$centers^2)*k.means$size) # = k.means$betweenss
+Wss <- sum(k.means$withinss)                        # = k.means$tot.withinss
+Ib <- 100*Bss/(Bss+Wss)
+print(paste0("Inertia between clustering ", round(Ib, digits=3), "%"))
+ind.clusters <- k.means$cluster
 
-before_conso_index =  round(calinhara(da$data,da$cluster),digits=2)
-before_conso_index
- 
-  
-after_conso_index = round(calinhara(Psi,k.means$cluster),digits=2)
-after_conso_index
-
-
-#CH.3 <- clustIndex(Psi,int.clust, index="calinski")
-CH_after= (Bss/Wss)
-CH_after
-
-CH_before=Bss/(Bss+Tss)
-CH_before
-#calculate it with and without kmeans
-
-
-#the result is improved with calinski-Harabassz
-
-
-# 6   Using the function catdes interpret and name the obtained clusters
-#and represent them in the first factorial display. 
-desc <- catdes(as.factor(k.means$cluster),1)
-desc$quanti
-
-#  representation of clusters in first factorial plane
-
-kmeans.cent <- k.means$centers
-kmeans.cent
 
 first_factorial <- fviz_cluster(k.means, data=Psi, k = num.clust, rect = TRUE, main = "Hclust ward",ggtheme = theme_minimal())
 first_factorial
 
-
+before_conso_index =  round(calinhara(da$data,da$cluster),digits=2)
+after_conso_index = round(calinhara(Psi,k.means$cluster),digits=2)
 
 
 ```
