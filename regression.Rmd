@@ -20,6 +20,7 @@ library(chemometrics)
 #data 
 mydata <- read.csv("C:/Users/Ana/Desktop/final_data.csv")
 sapply(mydata, class)
+head(mydata, n=8)
 
 #split data 
 set.seed(1876)
@@ -34,7 +35,7 @@ library(dplyr)
 library(FactoMineR)
 
 target.vble <- select(mydata, nutriscore_score)
-explanat.vble <- select (mydata, -nutriscore_score)
+explanat.vbles <- select (mydata, -nutriscore_score)
 
 x.target <- data.matrix(target.vble)
 x.explanat <- data.matrix(explanat.vble)
@@ -48,20 +49,43 @@ head(x.explanat)
 sapply(mydata, function(x) sum(is.na(x)))
 
 #model1: keeping only macronutrients
-model1 <- lm(formula = nutriscore_score ~ proteins_100g + carbohydrates_100g + fat_100g, data = data.train)
+model1 <- glm(formula = nutriscore_score ~ proteins_100g + carbohydrates_100g + fat_100g, data = data.train)
 summary(model1)
+mse1 <- mean(model1$residuals^2)
+mse1
 
 #model2: keeping all explanatory features
 model2 <- glm(nutriscore_score ~ proteins_100g + carbohydrates_100g + fat_100g + countries_en + additives_n + nova_group + nutriscore_grade + pnns_groups_2 + sugars_100g + fiber_100g + salt_100g, data = data.train, family = gaussian)
+summary(model2)
+mse2 <- mean(model2$residuals^2)
+mse2
 
-#model3: keeping only nutritional features, remove countries_en, pnns_group, nutriscore_grade
-model3 <- glm(nutriscore_score ~ proteins_100g + carbohydrates_100g + fat_100g + additives_n + nova_group  + sugars_100g + fiber_100g + salt_100g, data = data.train, family = gaussian)
+#model3: keeping only nutritional features, remove countries_en, pnns_group
+model3 <- glm(nutriscore_score ~ proteins_100g + carbohydrates_100g + fat_100g + additives_n + nova_group + nutriscore_grade + sugars_100g + fiber_100g + salt_100g, data = data.train, family = gaussian)
 summary(model3)
-model3$coefficients
+mse3 <- mean(model3$residuals^2)
+mse3
 confint(model3, conf.level=0.9)
-plot(model3)
 
+plot(data.train$salt[data.train$nutriscore_grade=="a"], data.train$nutriscore_score[data.train$nutriscore_grade=="a"], col=2)
+points(data.train$salt[data.train$nutriscore_grade=="b"], data.train$nutriscore_score[data.train$nutriscore_grade=="b"], col=3)
+points(data.train$salt[data.train$nutriscore_grade=="c"], data.train$nutriscore_score[data.train$nutriscore_grade=="c"], col=4)
+points(data.train$salt[data.train$nutriscore_grade=="d"], data.train$nutriscore_score[data.train$nutriscore_grade=="d"], col=5)
+points(data.train$salt[data.train$nutriscore_grade=="e"], data.train$nutriscore_score[data.train$nutriscore_grade=="e"], col=6)
 
+plot(data.train$nova_group[data.train$nutriscore_grade=="a"], data.train$nutriscore_score[data.train$nutriscore_grade=="a"], col=2)
+points(data.train$nova_group[data.train$nutriscore_grade=="b"], data.train$nutriscore_score[data.train$nutriscore_grade=="b"], col=3)
+points(data.train$nova_group[data.train$nutriscore_grade=="c"], data.train$nutriscore_score[data.train$nutriscore_grade=="c"], col=4)
+points(data.train$nova_group[data.train$nutriscore_grade=="d"], data.train$nutriscore_score[data.train$nutriscore_grade=="d"], col=5)
+points(data.train$nova_group[data.train$nutriscore_grade=="e"], data.train$nutriscore_score[data.train$nutriscore_grade=="e"], col=6)
+
+#create dummy variable/indicator
+levels(data.train$nutriscore_grade)
+mean(data.train$nutriscore_grade=="a")
+mean(data.train$nutriscore_grade=="b")
+mean(data.train$nutriscore_grade=="c")
+mean(data.train$nutriscore_grade=="d")
+mean(data.train$nutriscore_grade=="e")
 ```
 ```
 ```{r}
@@ -82,8 +106,8 @@ model4 <- glm(log(nutriscore_score) ~ proteins_100g + carbohydrates_100g + fat_1
 summary(model4)
 model4$coefficients
 confint(model4, conf.level=0.9)
-mse1 <- mean(model4$residuals^2)
-mse1
+mse4 <- mean(model4$residuals^2)
+mse4
 #[1] 0.5182961
 #we keep it 
 ```
@@ -92,8 +116,8 @@ model5
 ```{r}
 model5 <- glm(log(nutriscore_score) ~ proteins_100g + carbohydrates_100g + fat_100g + additives_n + poly(nova_group,2)  + sugars_100g + fiber_100g + salt_100g, data = data.train, family = gaussian)
 summary(model5)
-model4$coefficients
-confint(model4, conf.level=0.9)
+model5$coefficients
+confint(model5, conf.level=0.9)
 mse5 <- mean(model5$residuals^2)
 mse5
 #[1] 0.5176696
@@ -103,13 +127,17 @@ model6
 ```{r}
 model6 <- glm(log(nutriscore_score) ~ proteins_100g + carbohydrates_100g + fat_100g + additives_n + nova_group  + sugars_100g + poly(fiber_100g,2) + salt_100g, data = data.train, family = gaussian)
 summary(model6)
+model66 <- lm(log(nutriscore_score) ~ proteins_100g + carbohydrates_100g + fat_100g + additives_n + nova_group  + sugars_100g + poly(fiber_100g,2) + salt_100g, data = data.train, family = gaussian)
+summary(model66)
 model6$coefficients
 confint(model6, conf.level=0.9)
 mse6 <- mean(model6$residuals^2)
 mse6
 #[1] 0.5168053
+
+head (data.train, n=9)
 ```
-we keep model 4
+we keep model 3
 
 2. ridge regression
 ```{r}
@@ -117,17 +145,24 @@ library(stats)
 library(broom)
 library(glmnet)
 
+x = data.matrix(data.train)
+y_train = data.train$nutriscore_score
 alpha = 0
 lambdas <- 10^seq(3, -2, by = -.1)
-explanat.vble <- select (mydata, -nutriscore_score)
-explan2 <- model.matrix( ~ ., explanat.vble)
 
-model.ridge <- glmnet(explan2, x.target, alpha = 0, lambda = lambdas)
+target.vble <- select(mydata, nutriscore_score)
+explanat.vbles <- select (mydata, -nutriscore_score, -countries_en, -nutriscore_grade, pnns_groups_2)
+
+x.target <- data.matrix(target.vble)
+x.explanat <- data.matrix(explanat.vble)
+head(x.explanat)
+
+ridge_reg = glmnet(x.explanat, x.target, nlambda = 25, alpha = 0, lambda = lambdas)
+summary(ridge_reg)
+
+lasso_reg <- cv.glmnet(x.explanat, x.target, alpha = 1, lambda = lambdas, standardize = TRUE, nfolds = 5)
+
 
 class(explan2)
 class(x.explanat)
-x.explanat
-
-
-
 
